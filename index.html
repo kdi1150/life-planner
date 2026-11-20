@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>인생 플래너</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 화면의 주인공은 동그라미 그리드 하나. 왼쪽(모바일은 아래)에 질문·루틴, 오른쪽에 그리드. */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --ink:#1c2130; --muted:#646a78; --line:#dcdfd8;
+  --past:#cdd0c9; --free:#ffffff; --free-line:#aeb3a8;
+  --sleep:#28314f; --sns:#5a3860; --work:#3c5446;
+  --accent:#e6a019; --accent-ink:#8a5a00; --accent-soft:#fbeccb;
+  --warn:#b4471f;
+  --font-display:"Gowun Batang", "Nanum Myeongjo", serif;
+  --font-body:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13151b; --surface:#1c1f28; --ink:#eceef3; --muted:#9ba1ae; --line:#2e323d;
+    --past:#3a3e49; --free:#eef0e8; --free-line:#eef0e8;
+    --sleep:#4a5890; --sns:#85558a; --work:#4f7a62;
+    --accent:#f0b03a; --accent-ink:#f6c86b; --accent-soft:#3a2f17; --warn:#f08a5d;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13151b; --surface:#1c1f28; --ink:#eceef3; --muted:#9ba1ae; --line:#2e323d;
+  --past:#3a3e49; --free:#eef0e8; --free-line:#eef0e8;
+  --sleep:#4a5890; --sns:#85558a; --work:#4f7a62;
+  --accent:#f0b03a; --accent-ink:#f6c86b; --accent-soft:#3a2f17; --warn:#f08a5d;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button,input,select,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;text-wrap:balance;margin:0;line-height:1.3}
+p{margin:0}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(18px + env(safe-area-inset-top)) 0 14px;flex-wrap:wrap}
+.brand{font-family:var(--font-display);font-weight:700;font-size:20px}
+.brand small{font-family:var(--font-body);font-weight:500;font-size:12px;color:var(--muted);margin-left:8px;padding:2px 8px;border:1px solid var(--line);border-radius:99px;vertical-align:3px}
+nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px}
+nav button,.seg button{border:0;background:none;padding:6px 14px;min-height:40px;border-radius:99px;cursor:pointer;color:var(--muted);font-weight:500}
+nav button[aria-current="page"],.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{padding-bottom:48px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px}
+.eyebrow{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em}
+.muted{color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 16px;min-height:44px;border-radius:10px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted);padding-left:6px;padding-right:6px}
+.btn.danger{color:var(--warn)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.num{font-variant-numeric:tabular-nums}
+.big{font-family:var(--font-display);font-size:34px;font-weight:700;line-height:1.15}
+.big .unit{font-size:20px}
+
+/* 그리드 */
+.grid{display:grid;gap:5px;align-items:center}
+.grid.g-month{gap:3px}
+.grid.g-day{gap:3px}
+.grid.g-hour{gap:10px}
+.rl{font-size:11px;color:var(--muted);padding-right:6px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.c{position:relative;aspect-ratio:1;border-radius:50%;overflow:hidden;background-color:var(--base);transition:background-color .35s ease, box-shadow .35s ease;--base:var(--free);box-shadow:inset 0 0 0 1px var(--free-line)}
+.c::after{content:"";position:absolute;left:0;right:0;bottom:0;height:calc(var(--f,0) * 100%);background:var(--accent);transition:height .4s ease}
+.c.none{visibility:hidden}
+.c.past{--base:var(--past);box-shadow:none}
+.c.sleep{--base:var(--sleep);box-shadow:none}
+.c.sns{--base:var(--sns);box-shadow:none}
+.c.work{--base:var(--work);box-shadow:none}
+.c.now{outline:2px solid var(--accent);outline-offset:2px;overflow:hidden}
+.c.plan{box-shadow:inset 0 0 0 3px var(--accent)}
+.g-hour .c{max-width:64px;justify-self:center;width:100%}
+.hours-axis{display:grid;grid-template-columns:auto repeat(12,minmax(0,1fr));gap:10px;font-size:11px;color:var(--muted);margin-top:4px;text-align:center}
+.legend{display:grid;gap:8px}
+.lg{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;font-size:14px}
+.lg i{width:14px;height:14px;border-radius:50%;display:block;background:var(--base);box-shadow:inset 0 0 0 1px var(--free-line)}
+.lg i.past{--base:var(--past);box-shadow:none}.lg i.sleep{--base:var(--sleep);box-shadow:none}.lg i.sns{--base:var(--sns);box-shadow:none}.lg i.work{--base:var(--work);box-shadow:none}.lg i.free{--base:var(--free)}.lg i.fill{--base:var(--accent);box-shadow:none}
+.lg b{font-weight:600;font-variant-numeric:tabular-nums}
+.lg.key{font-weight:600}
+.lg .sub{color:var(--muted);font-size:12px;font-weight:400;margin-left:4px}
+
+/* 온보딩 */
+.onb{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:28px;align-items:start}
+.onb-card{display:grid;gap:18px}
+.step-dots{display:flex;gap:6px}
+.step-dots span{width:22px;height:4px;border-radius:2px;background:var(--line)}
+.step-dots span.on{background:var(--ink)}
+.q{font-size:24px}
+.field{display:grid;gap:6px}
+.field label{font-size:13px;font-weight:600}
+.field input[type=number],.field input[type=text]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.slider-val{font-family:var(--font-display);font-size:28px;font-weight:700}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.tally{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px dashed var(--free-line);background:none;border-radius:99px;padding:5px 12px;cursor:pointer;font-size:13px}
+.chip:hover{border-style:solid}
+.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.split .stepper{gap:8px}
+.split .stepper button{width:40px;height:40px;font-size:20px}
+.split .slider-val{font-size:20px;min-width:0}
+.when{align-self:flex-start}
+.rt-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.rt-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px}
+.gain{color:var(--accent-ink);font-weight:600}
+.birth{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
+.birth input,.birth select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.age-out{font-size:13px;color:var(--accent-ink);font-weight:600}
+.warn{color:var(--warn);font-size:13px}
+
+/* 오늘 */
+.today{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
+.today-cell{display:grid;justify-items:center;gap:14px;text-align:center}
+.bigc{position:relative;width:220px;height:220px;border-radius:50%;overflow:hidden;background:var(--free);box-shadow:inset 0 0 0 2px var(--free-line);display:grid;place-items:center}
+.bigc::after{content:"";position:absolute;left:0;right:0;bottom:0;height:calc(var(--f,0)*100%);background:var(--accent);transition:height .5s ease}
+.bigc span{position:relative;z-index:1;font-family:var(--font-display);font-size:40px;font-weight:700;color:#1c2130}
+.checks{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
+.checks label{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;cursor:pointer;background:var(--bg)}
+.checks input{width:20px;height:20px;accent-color:var(--accent)}
+.checks .done{border-color:var(--accent);background:var(--accent-soft)}
+.checks .meta{margin-left:auto;color:var(--muted);font-size:13px}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:18px;max-width:320px}
+.week div{display:grid;justify-items:center;gap:4px;font-size:11px;color:var(--muted)}
+.week .c{width:100%}
+.streak{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.streak span{padding:6px 12px;border-radius:999px;font-size:13px;background:var(--accent-soft);color:var(--accent-ink)}
+.streak span.q{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.streak b{font-weight:700}
+
+/* 그리드 화면 */
+.grid-head{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px}
+.grid-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.side{display:grid;gap:16px}
+.caption{font-size:13px;color:var(--muted);margin-top:14px}
+.wi{display:grid;gap:14px}
+.wi .field{gap:2px}
+.wi .field div{display:flex;justify-content:space-between;font-size:13px}
+
+/* 설정 */
+.settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.days{display:flex;gap:4px;flex-wrap:wrap}
+.days button{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:none;cursor:pointer;font-size:12px}
+.days button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.note{font-size:13px;color:var(--muted)}
+.status{font-size:13px;color:var(--accent-ink);min-height:1.4em}
+.store-note{font-size:12px;color:var(--warn);padding:8px 0}
+.stepper{display:flex;align-items:center;gap:14px}
+.stepper button{width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:22px;cursor:pointer;line-height:1}
+.stepper button:disabled{opacity:.35}
+.unit-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.unit-pick > span{font-size:13px;color:var(--muted);font-weight:600}
+.cell-info{margin-top:12px;font-size:14px;font-weight:500;min-height:1.5em}
+.cell-info.note{color:var(--muted);font-weight:400;font-size:13px}
+.c{-webkit-tap-highlight-color:transparent}
+.c.sel{outline:2px solid var(--ink);outline-offset:2px}
+.g-hour .c::before{content:attr(data-n);position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:600;z-index:1;color:var(--ink)}
+.g-hour .c.sleep::before,.g-hour .c.sns::before,.g-hour .c.work::before{color:#fff}
+.g-hour .c.past::before{color:var(--muted)}
+.g-hour .c[style*="--f: 1"]::before{color:#1c2130}
+#mainGrid .c[data-k]{cursor:pointer}
+
+@media (max-width:820px){
+  body{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  input,select{font-size:16px!important}
+  .onb,.today,.grid-layout,.settings{grid-template-columns:minmax(0,1fr);gap:16px}
+  .onb-grid{order:-1;padding:16px}
+  .onb-grid .tally{margin-bottom:10px}
+  .onb-grid .big{font-size:28px}
+  #onbGrid{max-width:250px;margin:0 auto;gap:3px}
+  #v-onb:not([data-step="4"]):not([data-step="5"]) #onbLegend{display:none}
+  .onb-card .actions{position:sticky;bottom:0;background:var(--surface);padding:12px 0 calc(12px + env(safe-area-inset-bottom));margin:0 0 -18px;z-index:2;border-top:1px solid var(--line);border-radius:0 0 16px 16px}
+  .onb-card .actions .btn.primary{flex:1}
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:20;border-radius:0;border:0;border-top:1px solid var(--line);padding:6px 10px calc(6px + env(safe-area-inset-bottom));justify-content:space-around}
+  nav button{flex:1;min-height:48px;font-size:15px}
+  .bigc{width:150px;height:150px}
+  .bigc span{font-size:30px}
+  .today-cell{gap:10px}
+  .week{margin-top:6px}
+  .card{padding:18px}
+  .grid.g-day{gap:2px}
+  .grid.g-month{gap:2px}
+  .grid.g-hour{gap:6px}
+  .hours-axis{gap:6px}
+}
+@media (max-width:420px){
+  .wrap{padding:0 16px}
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion: reduce){
+  .c,.c::after,.bigc::after{transition:none!important}
+}
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f3f4f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13151b" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="인생 플래너">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">인생 플래너<small>시제품</small></div>
+    <nav id="nav" hidden>
+      <button data-view="today">오늘</button>
+      <button data-view="grid">그리드</button>
+      <button data-view="settings">설정</button>
+    </nav>
+  </header>
+  <p class="store-note" id="storeNote" hidden>이 브라우저에서는 저장이 막혀 있어요. 새로고침하면 입력값이 사라져요.</p>
+
+  <main>
+    <!-- 온보딩 -->
+    <section class="view" id="v-onb">
+      <div class="onb">
+        <div class="card onb-card" id="onbCard"></div>
+        <div class="card onb-grid">
+          <div class="tally">
+            <div>
+              <p class="eyebrow" id="onbTallyLabel">남은 생</p>
+              <p class="big num" id="onbTally"></p>
+            </div>
+            <p class="muted num" id="onbTallySub"></p>
+          </div>
+          <div class="grid" id="onbGrid"></div>
+          <div class="legend" id="onbLegend" style="margin-top:18px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 오늘 -->
+    <section class="view" id="v-today" hidden>
+      <div class="today">
+        <div class="card today-cell">
+          <p class="eyebrow" id="todayDate"></p>
+          <div class="bigc" id="bigC"><span id="bigPct">0%</span></div>
+          <p class="muted" id="todaySub"></p>
+          <div class="week" id="week"></div>
+          <div class="streak" id="streak" aria-live="polite"></div>
+        </div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <h2 id="listTitle">오늘 루틴</h2>
+            <button class="btn ghost" id="yBtn" hidden>어제 기록 고치기</button>
+          </div>
+          <ul class="checks" id="rList"></ul>
+          <p class="note" id="todayHint" style="margin-top:14px"></p>
+          <div class="row" style="margin-top:18px">
+            <button class="btn" data-go="grid">전체 그리드 보기</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 그리드 -->
+    <section class="view" id="v-grid" hidden>
+      <div class="grid-head">
+        <div>
+          <p class="eyebrow">진짜 남은 시간</p>
+          <p class="big num" id="gBig"></p>
+        </div>
+        <div class="unit-pick"><span>한 칸 =</span>
+        <div class="seg" id="unitSeg" role="group" aria-label="한 칸의 단위">
+          <button data-unit="year">1년</button>
+          <button data-unit="month">1개월</button>
+          <button data-unit="day">1일</button>
+          <button data-unit="hour">1시간</button>
+        </div></div>
+      </div>
+      <div class="grid-layout">
+        <div class="card">
+          <div class="grid" id="mainGrid"></div>
+          <p class="cell-info" id="cellInfo"></p>
+          <p class="caption" id="gCaption"></p>
+        </div>
+        <aside class="side">
+          <div class="card legend" id="gLegend"></div>
+          <div class="card wi">
+            <div>
+              <h3>하루 사용시간 줄여 보기</h3>
+              <p class="note">미리보기예요. 저장을 눌러야 바뀌어요.</p>
+            </div>
+            <div class="field">
+              <div><label for="wiSns">미디어 (SNS·유튜브·OTT·TV)</label><span class="num" id="wiSnsV"></span></div>
+              <input type="range" id="wiSns" min="0" max="12" step="0.5">
+            </div>
+            <div class="field">
+              <div><label for="wiSleep">수면</label><span class="num" id="wiSleepV"></span></div>
+              <input type="range" id="wiSleep" min="0" max="12" step="0.5">
+            </div>
+            <div class="field">
+              <div><label for="wiWork">일·학업</label><span class="num" id="wiWorkV"></span></div>
+              <input type="range" id="wiWork" min="0" max="16" step="0.5">
+            </div>
+            <p class="gain" id="wiGain"></p>
+            <div class="row">
+              <button class="btn primary" id="wiSave">저장</button>
+              <button class="btn" id="wiReset">되돌리기</button>
+            </div>
+            <button class="btn" id="wiRoutine" hidden>이 시간으로 루틴 만들기</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 설정 -->
+    <section class="view" id="v-settings" hidden>
+      <div class="settings">
+        <form class="card" id="profileForm" style="display:grid;gap:16px">
+          <h2>생활 정보</h2>
+          <div class="form-grid">
+            <div class="field" style="grid-column:1/-1" id="sBirthBox"></div>
+            <div class="field"><label for="sLife">기대수명</label><input type="number" id="sLife" inputmode="numeric" min="1" max="120" step="1"></div>
+            <div class="field"><label for="sRetire">은퇴 예상 나이</label><input type="number" id="sRetire" inputmode="numeric" min="0" max="120" step="1"></div>
+            <div class="field"><label for="sSleepWd">수면 · 평일 (시간)</label><input type="number" id="sSleepWd" inputmode="decimal" min="0" max="16" step="0.5"></div>
+            <div class="field"><label for="sSleepWe">수면 · 주말 (시간)</label><input type="number" id="sSleepWe" inputmode="decimal" min="0" max="16" step="0.5"></div>
+            <div class="field"><label for="sSnsWd">미디어 · 평일</label><input type="number" id="sSnsWd" inputmode="decimal" min="0" max="16" step="0.5"></div>
+            <div class="field"><label for="sSnsWe">미디어 · 주말</label><input type="number" id="sSnsWe" inputmode="decimal" min="0" max="16" step="0.5"></div>
+            <div class="field"><label for="sWorkWd">일·학업 · 평일 (출퇴근 포함)</label><input type="number" id="sWorkWd" inputmode="decimal" min="0" max="16" step="0.5"></div>
+            <div class="field"><label for="sWorkWe">일·학업 · 주말</label><input type="number" id="sWorkWe" inputmode="decimal" min="0" max="16" step="0.5"></div>
+          </div>
+          <p class="warn" id="sWarn"></p>
+          <div class="row"><button class="btn primary" type="submit">저장</button><span class="status" id="sStatus"></span></div>
+        </form>
+
+        <div style="display:grid;gap:20px">
+          <div class="card" style="display:grid;gap:14px">
+            <h2>루틴</h2>
+            <ul class="rt-list" id="sRoutines"></ul>
+            <form id="addForm" style="display:grid;gap:12px">
+              <div class="form-grid">
+                <div class="field"><label for="aName">루틴 이름</label><input type="text" id="aName" placeholder="예: 운동" maxlength="20"></div>
+                <div class="field"><label for="aMin">시간 (분)</label><input type="number" id="aMin" inputmode="numeric" min="5" max="480" step="5" value="60"></div>
+              </div>
+              <div class="field"><label>하는 날</label><div class="seg when" id="aQuick" role="group" aria-label="빠르게 고르기"></div><div class="days" id="aDays"></div></div>
+              <div class="row"><button class="btn primary" type="submit">루틴 추가</button><span class="status" id="aStatus"></span></div>
+            </form>
+          </div>
+          <div class="card" style="display:grid;gap:12px">
+            <h2>기록</h2>
+            <p class="note">입력값과 루틴 기록은 이 브라우저에만 저장돼요. 다른 기기에서는 보이지 않아요.</p>
+            <div class="row">
+              <button class="btn" id="demoBtn">지난 90일 예시 기록 넣기</button>
+              <button class="btn danger" id="clearBtn">모든 기록 지우기</button>
+            </div>
+            <div class="row" id="clearConfirm" hidden>
+              <span class="warn">입력값과 루틴 기록이 모두 지워지고 처음 화면으로 돌아가요.</span>
+              <button class="btn danger" id="clearYes">지우기</button>
+              <button class="btn" id="clearNo">취소</button>
+            </div>
+            <span class="status" id="dStatus"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+const KEY = 'life-planner-prototype-v1';
+const NAMES = {past:'지나간 시간', sleep:'수면', sns:'미디어 (SNS·유튜브·OTT·TV)', work:'일·학업', free:'진짜 내 시간', fill:'루틴 달성'};
+const DAYS = ['일','월','화','수','목','금','토'];
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const diy = y => (new Date(y,1,29).getMonth()===1 ? 366 : 365);
+const dim = (y,m) => new Date(y, m+1, 0).getDate();
+const doy = d => Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate()) - new Date(d.getFullYear(),0,1)) / 864e5);
+const dateOf = (y,i) => new Date(y,0,1+i);
+const hrs = h => (Number.isInteger(h) ? h : h.toFixed(1)) + '시간';
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* ---------- 저장 ---------- */
+let canStore = true;
+function load(){ try{ const t = localStorage.getItem(KEY); return t ? JSON.parse(t) : null; }catch(e){ canStore=false; return null; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ canStore=false; } $('storeNote').hidden = canStore; }
+let S = load();
+$('storeNote').hidden = canStore;
+
+/* S = {birth:'YYYY-MM-DD', life, sleep, sns, work (주 평균), wd:{sleep,sns,work} 평일, we:{...} 주말, retire, routines:[{id,name,min,days}], records:{'YYYY-MM-DD':{done:[ids], total:n}}} */
+if (S && !S.birth && S.birthYear){ S.birth = `${S.birthYear}-01-01`; delete S.birthYear; save(); }
+function parseBirth(str){ const [y,m,d] = String(str).split('-').map(Number); return {y, m:m-1, d}; }
+/* 만 나이: 올해 생일이 아직 안 지났으면 1을 뺌 */
+function ageAt(b, date){ const before = date.getMonth() < b.m || (date.getMonth() === b.m && date.getDate() < b.d); return date.getFullYear() - b.y - (before ? 1 : 0); }
+/* 태어난 뒤 몇 번째 달인지 (생일 날짜 기준) */
+function monthIdx(b, date){ return (date.getFullYear()-b.y)*12 + (date.getMonth()-b.m) - (date.getDate() < b.d ? 1 : 0); }
+function profile(src){
+  const s = src || S, b = parseBirth(s.birth), sp = splitOf(s);
+  return {birth:b, age: ageAt(b, new Date()), life:s.life, sleep:s.sleep, sns:s.sns, work:s.work, retire:s.retire, wd:sp.wd, we:sp.we};
+}
+/* 평일(월~금)·주말(토·일) 값을 따로 받고, 남은 시간 계산에는 주 평균(평일 5일 + 주말 2일)을 씀 */
+const avg7 = (wd, we) => Math.round((wd*5 + we*2) / 7 * 100) / 100;
+const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
+function splitOf(s){ const a = {sleep:s.sleep, sns:s.sns, work:s.work}; return {wd: s.wd || {...a}, we: s.we || {...a}}; }
+function setSplit(s, wd, we){ s.wd = {...wd}; s.we = {...we}; ['sleep','sns','work'].forEach(k => s[k] = avg7(wd[k], we[k])); }
+/* 루틴 요일 묶음 */
+const WHEN = {all:[0,1,2,3,4,5,6], wd:[1,2,3,4,5], we:[0,6]};
+const WHEN_NAME = {all:'매일', wd:'평일', we:'주말'};
+function dayLabel(days){
+  const k = Object.keys(WHEN).find(k => WHEN[k].length === days.length && WHEN[k].every(d => days.includes(d)));
+  return k ? WHEN_NAME[k] : days.slice().sort((a,b)=>((a+6)%7)-((b+6)%7)).map(d=>DAYS[d]).join('·');
+}
+/* 출생 연·월·일 입력 칸 */
+function birthHTML(pre, b){
+  const months = Array.from({length:12},(_,i)=>`<option value="${i}" ${i===b.m?'selected':''}>${i+1}월</option>`).join('');
+  const days = Array.from({length:31},(_,i)=>`<option value="${i+1}" ${i+1===b.d?'selected':''}>${i+1}일</option>`).join('');
+  return `<label for="${pre}Y">태어난 해와 생일</label>
+    <div class="birth"><input type="number" id="${pre}Y" inputmode="numeric" min="1900" max="${new Date().getFullYear()}" value="${b.y}" aria-label="태어난 해">
+    <select id="${pre}M" aria-label="생일 월">${months}</select><select id="${pre}D" aria-label="생일 일">${days}</select></div>
+    <span class="age-out num" id="${pre}Out"></span>`;
+}
+function readBirth(pre){
+  const y = parseInt($(pre+'Y').value,10), m = +$(pre+'M').value; let d = +$(pre+'D').value;
+  const now = new Date();
+  if (!(y >= 1900 && y <= now.getFullYear())) return null;
+  d = Math.min(d, dim(y, m));
+  const b = {y, m, d};
+  if (new Date(y, m, d) > now) return null;
+  return b;
+}
+const birthStr = b => `${b.y}-${pad(b.m+1)}-${pad(b.d)}`;
+function bindBirth(pre, onChange){
+  const upd = () => { const b = readBirth(pre); $(pre+'Out').textContent = b ? `만 ${ageAt(b, new Date())}세` : '태어난 해를 다시 확인해 주세요.'; onChange(b); };
+  [pre+'Y', pre+'M', pre+'D'].forEach(id => $(id).oninput = upd);
+  upd();
+}
+
+/* ---------- 계산 ---------- */
+function yearsOf(p){
+  const R = Math.max(0, p.life - p.age);
+  const W = clamp(p.retire - p.age, 0, R);
+  const sleep = R*p.sleep/24, sns = R*p.sns/24, work = W*p.work/24;
+  return {R, sleep, sns, work, free: Math.max(0, R - sleep - sns - work)};
+}
+function fmtYears(y){
+  if (y < 1) return `약 ${Math.round(y*12)}개월`;
+  return `약 ${y.toFixed(1)}년`;
+}
+function darkCounts(R, W, p){
+  let sl = Math.round(R*p.sleep/24), sn = Math.round(R*p.sns/24), wk = Math.round(W*p.work/24);
+  const max = Math.max(0, R-1); // 지금 칸은 비워 둠
+  let over = sl+sn+wk-max;
+  if (over > 0){ const a=Math.min(wk,over); wk-=a; over-=a; const b=Math.min(sn,over); sn-=b; over-=b; sl-=over; }
+  return {sl, sn, wk};
+}
+/* 연속 기록: 루틴을 1개 이상 체크한 날 = 달성일. 루틴이 없는 요일은 건너뜀.
+   못 한 날은 한 달에 2번까지 '쉬는 날'로 자동 처리되어 연속이 이어짐. 누적 달성일은 줄지 않음. */
+const FREEZE_PER_MONTH = 2;
+function streakInfo(){
+  const out = {streak:0, total:0, left:FREEZE_PER_MONTH};
+  if (!S) return out;
+  const keys = Object.keys(S.records).filter(k => S.records[k].done.length);
+  out.total = keys.length;
+  if (!keys.length) return out;
+  const first = keys.sort()[0], used = {}, now = new Date();
+  const mk = d => `${d.getFullYear()}-${d.getMonth()}`;
+  const d = new Date(now);
+  const doneOn = x => { const r = S.records[keyOf(x)]; return r && r.done.length > 0; };
+  if (doneOn(d)) out.streak++;
+  d.setDate(d.getDate()-1);
+  for (let i=0; i<4000 && keyOf(d) >= first; i++, d.setDate(d.getDate()-1)){
+    if (doneOn(d)){ out.streak++; continue; }
+    if (!routinesFor(d).length) continue;
+    const m = mk(d); used[m] = used[m] || 0;
+    if (used[m] < FREEZE_PER_MONTH){ used[m]++; continue; }
+    break;
+  }
+  out.left = FREEZE_PER_MONTH - (used[mk(now)] || 0);
+  return out;
+}
+function routinesFor(d){ return (S ? S.routines : []).filter(r => r.days.includes(d.getDay())); }
+function dayRatio(k){ const r = S && S.records[k]; return r && r.total ? Math.min(1, r.done.length / r.total) : 0; }
+function aggregate(b){
+  const y = {}, m = {};
+  if (!S) return {y, m};
+  for (const k in S.records){
+    const r = dayRatio(k); if (!r) continue;
+    const [yy, mm, dd] = k.split('-').map(Number);
+    const dt = new Date(yy, mm-1, dd), li = ageAt(b, dt), mi = monthIdx(b, dt);
+    y[li] = (y[li]||0) + r; m[mi] = (m[mi]||0) + r;
+  }
+  return {y, m};
+}
+
+/* 단위별 그리드 모델 */
+function buildModel(unit, p){
+  if (unit === 'hour') return hourModel(p);
+  const now = new Date(), Y = now.getFullYear(), b = p.birth;
+  const agg = aggregate(b);
+  const mStart = i => new Date(b.y, b.m + i, 1);
+  const life = Math.max(p.age+1, Math.round(p.life));
+  let N, cur, W, fillOf, titleOf, rows = [], word, dec = 0;
+  if (unit === 'year'){
+    N = life; cur = p.age; W = clamp(p.retire - cur, 0, N - cur); word = '년'; dec = 1;
+    fillOf = i => Math.min(1, (agg.y[i]||0) / 365);
+    titleOf = i => `만 ${i}세 (${b.y+i}년 ${b.m+1}월부터)`;
+  } else if (unit === 'month'){
+    N = life*12; cur = monthIdx(b, now); W = clamp(p.retire*12 - cur, 0, N - cur); word = '개월';
+    fillOf = i => { const s0 = mStart(i); return Math.min(1, (agg.m[i]||0) / dim(s0.getFullYear(), s0.getMonth())); };
+    titleOf = i => { const s0 = mStart(i); return `${s0.getFullYear()}년 ${s0.getMonth()+1}월 · 만 ${Math.floor(i/12)}세`; };
+  } else {
+    N = diy(Y); cur = doy(now); W = p.age < p.retire ? N - cur : 0; word = '일';
+    fillOf = i => dayRatio(keyOf(dateOf(Y,i)));
+    titleOf = i => { const d = dateOf(Y,i); return `${d.getMonth()+1}월 ${d.getDate()}일`; };
+  }
+  const R = N - cur, k = darkCounts(R, W, p);
+  const cell = i => {
+    let st;
+    if (i < cur) st = 'past';
+    else if (i >= N - k.sl) st = 'sleep';
+    else if (i >= N - k.sl - k.sn) st = 'sns';
+    else if (i >= N - k.sl - k.sn - k.wk) st = 'work';
+    else st = 'free';
+    const f = i <= cur ? fillOf(i) : 0;
+    return {i, state:st, now: i===cur, fill:f, title: `${titleOf(i)} · ${NAMES[st]}${f ? ` · 루틴 ${Math.round(f*100)}%` : ''}`};
+  };
+  let cols, cls;
+  if (unit === 'year'){
+    cols = 10; cls = 'g-year';
+    for (let r = 0; r*10 < N; r++){ const cs=[]; for (let j=0;j<10;j++){ const i=r*10+j; cs.push(i<N ? cell(i) : null); } rows.push({label:`${r*10}세`, cells:cs}); }
+  } else if (unit === 'month'){
+    cols = 24; cls = 'g-month';
+    for (let r = 0; r*24 < N; r++){ const cs=[]; for (let j=0;j<24;j++){ const i=r*24+j; cs.push(i<N ? cell(i) : null); } rows.push({label: r%5===0 ? `${r*2}세` : '', cells:cs}); }
+  } else {
+    cols = 31; cls = 'g-day';
+    for (let m = 0; m < 12; m++){ const cs=[]; const start = doy(new Date(Y,m,1)); for (let d=0; d<31; d++) cs.push(d < dim(Y,m) ? cell(start+d) : null); rows.push({label:`${m+1}월`, cells:cs}); }
+  }
+  const amt = {sleep:R*p.sleep/24, sns:R*p.sns/24, work:W*p.work/24};
+  amt.free = Math.max(0, R - amt.sleep - amt.sns - amt.work);
+  const fmt = v => (dec ? v.toFixed(dec) : Math.round(v).toLocaleString('ko-KR')) + word;
+  const legend = [
+    {st:'past', name:NAMES.past, val: fmt(cur), cells:cur},
+    {st:'sleep', name:NAMES.sleep, val: fmt(amt.sleep), cells:k.sl},
+    {st:'sns', name:NAMES.sns, val: fmt(amt.sns), cells:k.sn},
+    {st:'work', name:NAMES.work + (W < R ? ` (${p.retire}세까지)` : ''), val: fmt(amt.work), cells:k.wk},
+    {st:'free', name:NAMES.free, val: fmt(amt.free), cells: R - k.sl - k.sn - k.wk, key:true},
+  ];
+  const caps = {
+    year: `한 칸이 1년이에요. 전 생애 ${N}칸, 노란색은 그해 루틴 달성 비율만큼 차올라요.`,
+    month: `한 칸이 1개월, 한 줄이 2년이에요. 전 생애 ${N.toLocaleString('ko-KR')}칸, 그달 하루 달성률의 평균만큼 차올라요.`,
+    day: `올해 ${Y}년의 ${N}일이에요. 그날 루틴 달성 비율만큼 차올라요.`,
+  };
+  return {sig:`${unit}-${N}-${Y}`, cls, cols, rows, legend, caption:caps[unit]};
+}
+function hourModel(p){
+  const now = new Date(), h = now.getHours();
+  const st = Array(24).fill('free'), plan = Array(24).fill(null);
+  const tp = (isWeekend(now) ? p.we : p.wd) || p;
+  const s = clamp(Math.round(tp.sleep),0,24);
+  for (let i=0;i<s;i++) st[i] = 'sleep';
+  const w = p.age < p.retire ? Math.round(tp.work) : 0;
+  for (let i=9,c=0; i<24 && c<w; i++) if (st[i]==='free'){ st[i]='work'; c++; }
+  const n = Math.round(tp.sns);
+  for (let i=23,c=0; i>=0 && c<n; i--) if (st[i]==='free'){ st[i]='sns'; c++; }
+  const rs = routinesFor(now), rec = S && S.records[keyOf(now)];
+  rs.forEach(r => { let need = Math.max(1, Math.round(r.min/60)); for (let i=0;i<24 && need>0;i++) if (st[i]==='free' && !plan[i]){ plan[i]=r; need--; } });
+  const cells = [];
+  for (let i=0;i<24;i++){
+    const r = plan[i];
+    const done = r && rec && rec.done.includes(r.id);
+    let state = st[i], f = 0, pl = false, t;
+    if (r){ state = (i<h && !done) ? 'past' : 'free'; f = done ? 1 : 0; pl = !done && i>=h; t = `${i}시 · ${r.name}${done?' 완료':''}`; }
+    else { if (i<h) state = 'past'; t = `${i}시 · ${NAMES[state]}`; }
+    cells.push({i, state, now:i===h, fill:f, plan:pl, title:t, n:String(i)});
+  }
+  const cnt = x => st.filter(v=>v===x).length;
+  const rCount = plan.filter(Boolean).length;
+  const legend = [
+    {st:'past', name:'지나간 시간', val:`${h}시간`, cells:h},
+    {st:'sleep', name:NAMES.sleep, val:`${cnt('sleep')}시간`},
+    {st:'sns', name:NAMES.sns, val:`${cnt('sns')}시간`},
+    {st:'work', name:NAMES.work, val:`${cnt('work')}시간`},
+    {st:'fill', name:'루틴', val:`${rCount}시간`},
+    {st:'free', name:NAMES.free, val:`${cnt('free') - rCount}시간`, key:true},
+  ];
+  return {sig:'hour', cls:'g-hour', cols:6,
+    rows:[{label:'새벽', cells:cells.slice(0,6)},{label:'오전', cells:cells.slice(6,12)},{label:'오후', cells:cells.slice(12,18)},{label:'밤', cells:cells.slice(18)}],
+    legend, caption:'오늘 24시간이에요. 숫자는 시각이고, 노란 테두리는 오늘 할 루틴 자리예요. 체크하면 채워져요.'};
+}
+
+/* ---------- 그리기 ---------- */
+function renderGrid(el, model, animate){
+  if (el.dataset.sig !== model.sig){
+    el.innerHTML = '';
+    el.className = 'grid ' + model.cls;
+    el.style.gridTemplateColumns = `auto repeat(${model.cols}, minmax(0,1fr))`;
+    const frag = document.createDocumentFragment();
+    model.rows.forEach(r => {
+      const l = document.createElement('div'); l.className='rl'; l.textContent = r.label; frag.appendChild(l);
+      r.cells.forEach(c => { const d = document.createElement('div'); d.className = c ? 'c' : 'c none'; if (c) d.dataset.k='1'; frag.appendChild(d); });
+    });
+    el.appendChild(frag);
+    el.dataset.sig = model.sig;
+    el._cells = Array.from(el.querySelectorAll('.c[data-k]'));
+    animate = false;
+  }
+  const flat = []; model.rows.forEach(r => r.cells.forEach(c => c && flat.push(c)));
+  const changed = [];
+  flat.forEach((c, idx) => {
+    const d = el._cells[idx];
+    d.style.transitionDelay = '0ms';
+    const cls = 'c ' + c.state + (c.now?' now':'') + (c.plan?' plan':'');
+    if (d.dataset.st && d.dataset.st !== c.state) changed.push(d);
+    const keep = d.classList.contains('sel') ? ' sel' : '';
+    if (d.className !== cls + keep) d.className = cls + keep;
+    d.dataset.st = c.state;
+    d.style.setProperty('--f', c.fill || 0);
+    d.title = c.title;
+    d.dataset.info = c.title;
+    if (c.n != null) d.dataset.n = c.n;
+  });
+  if (animate && !reduceMotion && changed.length){
+    const step = Math.min(90, 1400 / changed.length);
+    changed.reverse().forEach((d,k) => { d.style.transitionDelay = Math.round(k*step) + 'ms'; });
+  }
+}
+function renderLegend(el, legend){
+  el.innerHTML = legend.map(l => `<div class="lg${l.key?' key':''}"><i class="${l.st}"></i><span>${l.name}${l.cells!=null ? `<span class="sub">${l.cells.toLocaleString('ko-KR')}칸</span>` : ''}</span><b>${l.val}</b></div>`).join('')
+    + (legend.some(l=>l.st==='fill') ? '' : `<div class="lg"><i class="fill"></i><span>루틴 달성</span><b class="muted" style="font-weight:400">채운 만큼</b></div>`);
+}
+
+/* ---------- 온보딩 ---------- */
+const OB0 = {step:0, birth:{y:1991, m:0, d:1}, life:83, sleep:7, sns:3, work:7, retire:60, cut:0, applied:0, routines:[],
+  wd:{sleep:7, sns:2, work:10}, we:{sleep:8, sns:4, work:0}};
+const freshOb = () => ({...OB0, birth:{...OB0.birth}, routines:[], wd:{...OB0.wd}, we:{...OB0.we}});
+const ob = freshOb();
+function syncOb(){ ['sleep','sns','work'].forEach(k => ob[k] = avg7(ob.wd[k], ob.we[k])); }
+syncOb();
+let obWhen = 'all';
+// applied: 몇 번째 항목까지 그리드에 반영됐는지 (0=나이, 1=수면, 2=SNS, 3=일)
+function obProfile(){
+  return {birth:ob.birth, age:ageAt(ob.birth, new Date()), life:ob.life,
+    sleep: ob.applied>=1 ? ob.sleep : 0,
+    sns: ob.applied>=2 ? Math.max(0, ob.sns - ob.cut) : 0,
+    work: ob.applied>=3 ? ob.work : 0,
+    retire: ob.retire};
+}
+function renderOnbGrid(animate){
+  const p = obProfile();
+  const m = buildModel('year', p);
+  renderGrid($('onbGrid'), m, animate);
+  const lg = m.legend.filter((l,i) => i===0 || i===4 || (l.st==='sleep'&&ob.applied>=1) || (l.st==='sns'&&ob.applied>=2) || (l.st==='work'&&ob.applied>=3));
+  renderLegend($('onbLegend'), lg);
+  const y = yearsOf(p);
+  $('onbTallyLabel').textContent = ob.applied ? '진짜 남은 시간' : '남은 생';
+  $('onbTally').innerHTML = ob.applied ? `${fmtYears(y.free)}` : `${y.R}<span class="unit">년</span>`;
+  $('onbTallySub').textContent = ob.applied ? `남은 생 ${y.R}년 중` : `${ob.life}세까지 · 한 칸이 1년`;
+}
+const SUGGEST = [{name:'운동',min:60},{name:'영어공부',min:60},{name:'독서',min:30},{name:'가족과 산책',min:30}];
+function dots(){ return `<div class="step-dots">${[0,1,2,3,4,5].map(i=>`<span class="${i<=ob.step?'on':''}"></span>`).join('')}</div>`; }
+function sliderStep(title, desc, key, max, foot){
+  const part = (pt, name) => `<div class="field"><label for="obS_${pt}">${name}</label>
+    <div class="stepper"><button type="button" id="obM_${pt}" aria-label="${name} 30분 빼기">−</button>
+    <span class="slider-val num" id="obV_${pt}">${hrs(ob[pt][key])}</span>
+    <button type="button" id="obP_${pt}" aria-label="${name} 30분 더하기">+</button></div>
+    <input type="range" id="obS_${pt}" min="0" max="${max}" step="0.5" value="${ob[pt][key]}"></div>`;
+  return `${dots()}<h1 class="q">${title}</h1><p class="muted">${desc}</p>
+    <div class="split">${part('wd','평일 (월~금)')}${part('we','주말 (토·일)')}</div>
+    <p class="note" id="obAvg"></p>${foot||''}
+    <div class="row actions"><button class="btn primary" id="obNext">다음</button><button class="btn ghost" id="obSkip">건너뛰기</button><button class="btn ghost" id="obBack">이전</button></div>`;
+}
+function renderOnb(){
+  const c = $('onbCard');
+  if (ob.step === 0){
+    c.innerHTML = `${dots()}<h1 class="q">언제 태어났고, 몇 살까지 살 것 같나요?</h1>
+      <p class="muted">태어난 해를 넣으면 만 나이로 계산해요. 생일까지 넣으면 더 정확해요.</p>
+      <div class="field">${birthHTML('obB', ob.birth)}</div>
+      <div class="field"><label for="obLife">기대수명</label><input type="number" id="obLife" inputmode="numeric" min="1" max="120" value="${ob.life}"></div>
+      <p class="note">기대수명을 모르면 한국 평균인 83세를 그대로 두세요.</p>
+      <p class="warn" id="obWarn"></p>
+      <div class="row actions"><button class="btn primary" id="obNext">다음</button></div>`;
+    let bb = ob.birth;
+    const upd = () => {
+      const l = parseInt($('obLife').value,10), a = bb ? ageAt(bb, new Date()) : -1;
+      const ok = !!bb && a < 120 && l > a && l <= 120;
+      $('obWarn').textContent = !bb ? '' : (ok ? '' : '기대수명은 지금 나이보다 크고 120세 이하로 적어 주세요.');
+      $('obNext').disabled = !ok;
+      if (ok){ ob.birth = bb; ob.life = l; renderOnbGrid(false); }
+    };
+    bindBirth('obB', b => { bb = b; if ($('obLife')) upd(); });
+    $('obLife').oninput = upd;
+    $('obNext').onclick = () => go(1);
+  } else if (ob.step === 1){
+    c.innerHTML = sliderStep('하루에 몇 시간 자나요?', '평일과 주말을 따로 넣어 주세요. 입력하면 남은 생 중 잠으로 쓰일 칸이 끝에서부터 하나씩 꺼져요.', 'sleep', 12);
+    bindSlider('sleep');
+  } else if (ob.step === 2){
+    c.innerHTML = sliderStep('미디어는 하루 몇 시간 보나요?', '미디어 시간 (SNS, 유튜브, OTT, TV 등). 휴대폰 화면 시간에 TV 보는 시간을 더해 주세요.', 'sns', 12);
+    bindSlider('sns');
+  } else if (ob.step === 3){
+    c.innerHTML = sliderStep('일이나 공부에 하루 몇 시간 쓰나요?', '출퇴근 시간을 포함해 주세요. 주말에 쉬면 0으로 두세요. 은퇴 나이까지만 빼요.', 'work', 16,
+      `<div class="field"><label for="obRetire">은퇴 예상 나이</label><input type="number" id="obRetire" inputmode="numeric" min="0" max="120" value="${ob.retire}"></div>`);
+    bindSlider('work');
+    $('obRetire').oninput = e => { const v = parseInt(e.target.value,10); if (v>=0 && v<=120) ob.retire = v; };
+  } else if (ob.step === 4){
+    const base = yearsOf({...obProfile(), sns: ob.sns});
+    c.innerHTML = `${dots()}<p class="eyebrow">결과</p>
+      <h1 class="q">당신의 진짜 남은 시간은 <span id="obRes">${fmtYears(yearsOf(obProfile()).free)}</span>이에요</h1>
+      <p class="muted">남은 ${base.R}년 중 수면 ${base.sleep.toFixed(1)}년, 미디어 ${base.sns.toFixed(1)}년, 일·학업 ${base.work.toFixed(1)}년을 뺀 시간이에요.</p>
+      <div class="field"><label for="obCut">미디어 시간을 하루 줄여 보면</label>
+        <span class="slider-val num" id="obCutV">${ob.cut ? hrs(ob.cut)+' 줄이기' : '그대로'}</span>
+        <input type="range" id="obCut" min="0" max="${ob.sns}" step="0.5" value="${ob.cut}">
+        <p class="gain" id="obGain"></p></div>
+      <div class="row actions"><button class="btn primary" id="obNext">다음: 루틴 만들기</button><button class="btn ghost" id="obBack">이전</button></div>`;
+    const upd = () => {
+      ob.cut = parseFloat($('obCut').value);
+      $('obCutV').textContent = ob.cut ? hrs(ob.cut)+' 줄이기' : '그대로';
+      const gain = yearsOf(obProfile()).free - base.free;
+      $('obGain').textContent = ob.cut ? `${fmtYears(gain)}이 돌아와요. 다음 단계에서 이 시간으로 루틴을 만들 수 있어요.` : '';
+      $('obRes').textContent = fmtYears(yearsOf(obProfile()).free);
+      renderOnbGrid(true);
+    };
+    $('obCut').oninput = upd; upd();
+    $('obNext').onclick = () => go(5);
+    $('obBack').onclick = () => go(3);
+  } else {
+    const free = yearsOf(obProfile()).free;
+    const sug = ob.cut ? [{name:'되찾은 시간 루틴', min:Math.round(ob.cut*60)}, ...SUGGEST] : SUGGEST;
+    c.innerHTML = `${dots()}<h1 class="q">이 ${fmtYears(free).replace('약 ','')}을 어떻게 채울까요?</h1>
+      <p class="muted">평일 루틴과 주말 루틴을 각각 3개까지 정해 주세요. 체크할 때마다 오늘 칸이 채워져요.</p>
+      <div class="seg when" id="obWhen" role="group" aria-label="루틴 하는 날">${['all','wd','we'].map(k=>`<button type="button" data-w="${k}" aria-pressed="${obWhen===k}">${WHEN_NAME[k]}</button>`).join('')}</div>
+      <div class="chips">${sug.map((s,i)=>`<button class="chip" data-s="${i}">+ ${s.name} ${s.min}분</button>`).join('')}</div>
+      <div class="form-grid">
+        <div class="field"><label for="obRName">루틴 이름</label><input type="text" id="obRName" maxlength="20" placeholder="예: 운동"></div>
+        <div class="field"><label for="obRMin">시간 (분)</label><input type="number" id="obRMin" inputmode="numeric" min="5" max="480" step="5" value="${ob.cut ? Math.round(ob.cut*60) : 60}"></div>
+      </div>
+      <div class="row"><button class="btn" id="obRAdd">추가</button><span class="note" id="obRNote"></span></div>
+      <ul class="rt-list" id="obRList"></ul>
+      <div class="row actions"><button class="btn primary" id="obFinish">시작하기</button><button class="btn ghost" id="obBack">이전</button></div>`;
+    const cnt = d => ob.routines.filter(r => r.days.includes(d)).length;
+    const canAdd = () => WHEN[obWhen].every(d => cnt(d) < 3);
+    const list = () => {
+      $('obRList').innerHTML = ob.routines.map((r,i)=>`<li><span>${esc(r.name)} <span class="muted">${r.min}분 · ${dayLabel(r.days)}</span></span><button class="btn ghost" data-del="${i}" aria-label="${esc(r.name)} 빼기">빼기</button></li>`).join('');
+      const full = !canAdd();
+      $('obRNote').textContent = full ? `${WHEN_NAME[obWhen]} 루틴은 처음엔 3개까지예요. 더 넣고 싶으면 시작한 뒤 설정에서 얼마든지 더할 수 있어요.` : `평일 ${cnt(1)}/3 · 주말 ${cnt(0)}/3`;
+      $('obRAdd').disabled = full;
+      c.querySelectorAll('.chip').forEach(b => b.disabled = full);
+      c.querySelectorAll('#obWhen button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === obWhen));
+    };
+    $('obWhen').onclick = e => { const w = e.target.dataset.w; if (w){ obWhen = w; list(); } };
+    const add = (name, min) => { if (!name || !canAdd()) return; ob.routines.push({id:uid(), name, min:clamp(min||30,5,480), days:WHEN[obWhen].slice()}); list(); };
+    c.querySelectorAll('.chip').forEach(b => b.onclick = () => { const s = sug[+b.dataset.s]; add(s.name, s.min); });
+    $('obRAdd').onclick = () => { add($('obRName').value.trim(), parseInt($('obRMin').value,10)); $('obRName').value=''; };
+    $('obRList').onclick = e => { const i = e.target.dataset.del; if (i!=null){ ob.routines.splice(+i,1); list(); } };
+    $('obFinish').onclick = finishOnb;
+    $('obBack').onclick = () => go(4);
+    list();
+  }
+}
+function bindSlider(key){
+  ['wd','we'].forEach(pt => {
+    const s = $('obS_'+pt);
+    const set = v => { ob[pt][key] = clamp(v, 0, +s.max); s.value = ob[pt][key]; $('obV_'+pt).textContent = hrs(ob[pt][key]);
+      $('obM_'+pt).disabled = ob[pt][key] <= 0; $('obP_'+pt).disabled = ob[pt][key] >= +s.max;
+      syncOb(); $('obAvg').textContent = `주 평균 하루 ${hrs(ob[key])} (평일 5일 + 주말 2일)`; };
+    s.oninput = () => set(parseFloat(s.value));
+    $('obM_'+pt).onclick = () => set(ob[pt][key] - 0.5);
+    $('obP_'+pt).onclick = () => set(ob[pt][key] + 0.5);
+    set(ob[pt][key]);
+  });
+  const idx = {sleep:1, sns:2, work:3}[key];
+  $('obNext').onclick = () => { ob.applied = Math.max(ob.applied, idx); go(ob.step+1, true); };
+  $('obSkip').onclick = () => { ob.wd[key] = 0; ob.we[key] = 0; syncOb(); ob.applied = Math.max(ob.applied, idx); go(ob.step+1, true); };
+  $('obBack').onclick = () => { ob.applied = Math.min(ob.applied, idx-1); go(ob.step-1, true); };
+}
+function go(step, animate){
+  ob.step = step;
+  if (step >= 1 && step <= 3) ob.applied = step - 1;
+  if (step < 4) ob.cut = 0;
+  $('v-onb').dataset.step = step;
+  renderOnb();
+  if (window.matchMedia('(max-width:820px)').matches) window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'});
+  renderOnbGrid(!!animate);
+  const f = $('onbCard').querySelector('h1'); if (f){ f.setAttribute('tabindex','-1'); }
+}
+function finishOnb(){
+  S = {birth: birthStr(ob.birth), life:ob.life, retire:ob.retire, routines: ob.routines, records:{}};
+  const cut = o => ({...o, sns: Math.max(0, o.sns - ob.cut)});
+  setSplit(S, cut(ob.wd), cut(ob.we));
+  save();
+  show('today');
+}
+
+/* ---------- 오늘 ---------- */
+let editYesterday = false;
+function viewDate(){ const d = new Date(); if (editYesterday) d.setDate(d.getDate()-1); return d; }
+function toggle(d, id){
+  const k = keyOf(d), sched = routinesFor(d);
+  const rec = S.records[k] || {done:[], total:0};
+  const ids = sched.map(r=>r.id);
+  rec.done = rec.done.filter(x => ids.includes(x));
+  rec.done = rec.done.includes(id) ? rec.done.filter(x=>x!==id) : rec.done.concat(id);
+  rec.total = sched.length;
+  if (!rec.done.length) delete S.records[k]; else S.records[k] = rec;
+  save();
+}
+function renderToday(){
+  const now = new Date();
+  const canY = now.getHours() < 12;
+  if (!canY) editYesterday = false;
+  const d = viewDate(), k = keyOf(d), rs = routinesFor(d), rec = S.records[k];
+  const done = rec ? rec.done.filter(id => rs.some(r=>r.id===id)) : [];
+  const ratio = rs.length ? done.length / rs.length : 0;
+  $('todayDate').textContent = `${d.getMonth()+1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일${editYesterday?' · 어제':''}`;
+  $('bigC').style.setProperty('--f', ratio);
+  $('bigPct').textContent = rs.length ? `${done.length}/${rs.length}` : (S.routines.length ? '쉬는 날' : '0/0');
+  const y = yearsOf(profile());
+  $('todaySub').textContent = `진짜 남은 시간 ${fmtYears(y.free)} 중 하루`;
+  $('listTitle').textContent = editYesterday ? '어제 루틴' : '오늘 루틴';
+  $('yBtn').hidden = !canY;
+  $('yBtn').textContent = editYesterday ? '오늘로 돌아가기' : '어제 기록 고치기';
+  $('rList').innerHTML = rs.length ? rs.map(r => {
+    const on = done.includes(r.id);
+    return `<li><label class="${on?'done':''}"><input type="checkbox" data-id="${r.id}" ${on?'checked':''}><span>${esc(r.name)}</span><span class="meta">${r.min}분</span></label></li>`;
+  }).join('') : `<li class="note">${S.routines.length ? '이날은 정해 둔 루틴이 없어요.' : '아직 루틴이 없어요.'} <button class="btn" data-go="settings" style="margin-top:8px">루틴 추가하기</button></li>`;
+  $('todayHint').textContent = editYesterday
+    ? '어제 기록은 오늘 낮 12시까지 고칠 수 있어요.'
+    : (ratio === 1 ? '오늘 칸을 다 채웠어요. 이 칸은 월 칸과 년 칸에도 쌓여요.' : '하나씩 체크할 때마다 오늘 칸이 그만큼 차올라요. 일부만 해도 그만큼 남아요.');
+  // 이번 주 7칸
+  const wk = []; const base = new Date(now); base.setDate(now.getDate() - now.getDay());
+  for (let i=0;i<7;i++){ const x = new Date(base); x.setDate(base.getDate()+i); const fut = x > now && keyOf(x)!==keyOf(now);
+    wk.push(`<div><span class="c ${fut?'free':'past'}${keyOf(x)===keyOf(now)?' now':''}" style="--f:${dayRatio(keyOf(x))};display:block" title="${x.getMonth()+1}월 ${x.getDate()}일 · ${Math.round(dayRatio(keyOf(x))*100)}%"></span>${DAYS[i]}</div>`); }
+  $('week').innerHTML = wk.join('');
+  const st = streakInfo();
+  $('streak').innerHTML = `<span>연속 <b>${st.streak}</b>일</span><span>누적 <b>${st.total}</b>일</span><span class="q">이번 달 쉬는 날 ${st.left}회 남음</span>`;
+  if (!editYesterday && [3,7,14,30,50,100,200,365].includes(st.streak) && done.length)
+    $('todayHint').textContent = `연속 ${st.streak}일째예요. 잘하고 있어요!`;
+}
+$('rList').addEventListener('change', e => { const id = e.target.dataset.id; if (id){ toggle(viewDate(), id); renderToday(); } });
+$('yBtn').onclick = () => { editYesterday = !editYesterday; renderToday(); };
+
+/* ---------- 그리드 ---------- */
+let unit = 'year';
+let wi = null; // 미리보기 값
+function renderGridView(animate){
+  const p = {...profile(), ...(wi||{})};
+  const m = buildModel(unit, p);
+  renderGrid($('mainGrid'), m, animate);
+  renderLegend($('gLegend'), m.legend);
+  $('gCaption').textContent = m.caption;
+  const sel = $('mainGrid').querySelector('.c.sel');
+  $('cellInfo').textContent = sel ? sel.dataset.info : '칸을 누르면 언제이고 어떤 시간인지 보여요.';
+  $('cellInfo').className = sel ? 'cell-info' : 'cell-info note';
+  $('gBig').textContent = fmtYears(yearsOf(p).free);
+  document.querySelectorAll('#unitSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.unit===unit));
+  // what-if
+  const s = profile();
+  const cur = wi || {sleep:s.sleep, sns:s.sns, work:s.work};
+  [['Sns','sns'],['Sleep','sleep'],['Work','work']].forEach(([n,k]) => {
+    $('wi'+n).value = cur[k];
+    const diff = cur[k] - s[k];
+    $('wi'+n+'V').textContent = hrs(cur[k]) + (diff ? ` (${diff>0?'+':''}${diff}시간)` : '');
+  });
+  const gain = yearsOf(p).free - yearsOf(s).free;
+  const reduced = Math.max(0, s.sleep-cur.sleep) + Math.max(0, s.sns-cur.sns) + Math.max(0, s.work-cur.work);
+  $('wiGain').className = Math.abs(gain) < 0.005 ? 'note' : 'gain';
+  $('wiGain').textContent = Math.abs(gain) < 0.005 ? '슬라이더를 움직이면 칸이 바로 밝아지거나 어두워져요.' : (gain > 0 ? `${fmtYears(gain)}이 돌아와요` : `${fmtYears(-gain)}이 줄어요`);
+  $('wiSave').disabled = !wi; $('wiReset').disabled = !wi;
+  $('wiRoutine').hidden = !(reduced > 0);
+  $('wiRoutine').textContent = `하루 ${hrs(reduced)}으로 루틴 만들기`;
+  $('wiRoutine').dataset.min = Math.round(reduced*60);
+}
+document.querySelectorAll('#unitSeg button').forEach(b => b.onclick = () => { unit = b.dataset.unit; renderGridView(false); });
+$('mainGrid').addEventListener('click', e => {
+  const d = e.target.closest('.c[data-k]'); if (!d) return;
+  $('mainGrid').querySelectorAll('.c.sel').forEach(x => x.classList.remove('sel'));
+  d.classList.add('sel');
+  $('cellInfo').textContent = d.dataset.info; $('cellInfo').className = 'cell-info';
+});
+[['Sns','sns'],['Sleep','sleep'],['Work','work']].forEach(([n,k]) => {
+  $('wi'+n).oninput = e => { const s = profile(); wi = wi || {sleep:s.sleep, sns:s.sns, work:s.work}; wi[k] = parseFloat(e.target.value); renderGridView(true); };
+});
+function applyWi(){
+  if (!wi) return;
+  const sp = splitOf(S), wd = {...sp.wd}, we = {...sp.we};
+  ['sleep','sns','work'].forEach(k => { const dlt = wi[k] - S[k]; wd[k] = Math.round(clamp(wd[k] + dlt, 0, 24)*10)/10; we[k] = Math.round(clamp(we[k] + dlt, 0, 24)*10)/10; });
+  setSplit(S, wd, we); wi = null; save();
+}
+$('wiSave').onclick = () => { if (!wi) return; applyWi(); renderGridView(false); };
+$('wiReset').onclick = () => { wi = null; renderGridView(true); };
+$('wiRoutine').onclick = () => {
+  const min = +$('wiRoutine').dataset.min;
+  if (wi) applyWi();
+  show('settings');
+  $('aMin').value = clamp(min,5,480); $('aName').value = ''; $('aName').focus();
+  $('aStatus').textContent = `줄인 ${min}분을 저장했어요. 이 시간에 할 루틴 이름을 적어 주세요.`;
+};
+
+/* ---------- 설정 ---------- */
+let addDays = [0,1,2,3,4,5,6];
+function renderSettings(){
+  const p = profile();
+  $('sBirthBox').innerHTML = birthHTML('sB', p.birth); bindBirth('sB', () => {});
+  $('sLife').value = p.life; $('sRetire').value = p.retire;
+  [['Sleep','sleep'],['Sns','sns'],['Work','work']].forEach(([n,k]) => { $('s'+n+'Wd').value = p.wd[k]; $('s'+n+'We').value = p.we[k]; });
+  $('sWarn').textContent = '';
+  $('sRoutines').innerHTML = S.routines.length ? S.routines.map(r => `<li><span>${esc(r.name)} <span class="muted">${r.min}분 · ${dayLabel(r.days)}</span></span><button class="btn ghost danger" data-del="${r.id}" aria-label="${esc(r.name)} 삭제">삭제</button></li>`).join('') : '<li class="note">루틴이 없어요.</li>';
+  $('aQuick').innerHTML = ['all','wd','we'].map(k => `<button type="button" data-w="${k}" aria-pressed="${dayLabel(addDays)===WHEN_NAME[k]}">${WHEN_NAME[k]}</button>`).join('');
+  $('aDays').innerHTML = [1,2,3,4,5,6,0].map(d => `<button type="button" data-d="${d}" aria-pressed="${addDays.includes(d)}">${DAYS[d]}</button>`).join('');
+}
+$('aDays').onclick = e => { const d = e.target.dataset.d; if (d==null) return; const n=+d; addDays = addDays.includes(n) ? addDays.filter(x=>x!==n) : addDays.concat(n); renderSettings(); };
+$('aQuick').onclick = e => { const w = e.target.dataset.w; if (w){ addDays = WHEN[w].slice(); renderSettings(); } };
+$('sRoutines').onclick = e => { const id = e.target.dataset.del; if (!id) return; S.routines = S.routines.filter(r=>r.id!==id); save(); renderSettings(); $('aStatus').textContent='루틴을 삭제했어요. 이미 채운 칸은 그대로 남아요.'; };
+$('addForm').onsubmit = e => {
+  e.preventDefault();
+  const name = $('aName').value.trim(), min = parseInt($('aMin').value,10);
+  if (!name){ $('aStatus').textContent = '루틴 이름을 적어 주세요.'; return; }
+  if (!addDays.length){ $('aStatus').textContent = '요일을 하나 이상 골라 주세요.'; return; }
+  S.routines.push({id:uid(), name, min:clamp(min||30,5,480), days:addDays.slice()});
+  save(); $('aName').value=''; addDays=[0,1,2,3,4,5,6]; renderSettings(); $('aStatus').textContent = `"${name}" 루틴을 추가했어요.`;
+};
+$('profileForm').onsubmit = e => {
+  e.preventDefault();
+  const v = id => parseFloat($(id).value);
+  const bb = readBirth('sB');
+  if (!bb){ $('sWarn').textContent = '태어난 해와 생일을 다시 확인해 주세요.'; return; }
+  const age = ageAt(bb, new Date()), life = Math.round(v('sLife')), retire = Math.round(v('sRetire'));
+  const wd = {sleep:v('sSleepWd'), sns:v('sSnsWd'), work:v('sWorkWd')}, we = {sleep:v('sSleepWe'), sns:v('sSnsWe'), work:v('sWorkWe')};
+  if (!(age>=0 && life>age && life<=120)){ $('sWarn').textContent = '기대수명은 나이보다 크고 120세 이하로 적어 주세요.'; return; }
+  if ([...Object.values(wd), ...Object.values(we)].some(x => !(x>=0 && x<=16)) || !(retire>=0)){ $('sWarn').textContent = '시간은 0~16시간 사이로 적어 주세요.'; return; }
+  const over = o => o.sleep + o.sns + o.work > 24;
+  $('sWarn').textContent = over(wd) || over(we) ? '세 항목을 더하면 24시간이 넘어요. 그리드는 남은 칸까지만 어둡게 칠해요.' : '';
+  Object.assign(S, {birth:birthStr(bb), life, retire}); setSplit(S, wd, we);
+  save(); wi = null;
+  $('sStatus').textContent = `저장했어요. 진짜 남은 시간은 ${fmtYears(yearsOf(profile()).free)}이에요.`;
+};
+$('demoBtn').onclick = () => {
+  if (!S.routines.length) S.routines = [{id:uid(),name:'운동',min:60,days:[1,3,5]},{id:uid(),name:'영어공부',min:60,days:[0,1,2,3,4,5,6]},{id:uid(),name:'독서',min:30,days:[0,1,2,3,4,5,6]}];
+  const now = new Date();
+  for (let i=1;i<=90;i++){
+    const d = new Date(now); d.setDate(now.getDate()-i);
+    const rs = routinesFor(d); if (!rs.length) continue;
+    const p = 0.35 + 0.5*Math.sin(i/9)**2;
+    const done = rs.filter(() => Math.random() < p).map(r=>r.id);
+    if (done.length) S.records[keyOf(d)] = {done, total:rs.length};
+  }
+  save(); renderSettings();
+  $('dStatus').textContent = '지난 90일에 예시 기록을 넣었어요. 그리드에서 1일과 1개월 단위로 확인해 보세요.';
+};
+$('clearBtn').onclick = () => { $('clearConfirm').hidden = false; };
+$('clearNo').onclick = () => { $('clearConfirm').hidden = true; };
+$('clearYes').onclick = () => {
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  S = null; $('clearConfirm').hidden = true;
+  Object.assign(ob, freshOb()); syncOb(); obWhen = 'all';
+  show('onb');
+};
+
+/* ---------- 화면 전환 ---------- */
+function show(v){
+  ['onb','today','grid','settings'].forEach(x => $('v-'+x).hidden = x!==v);
+  $('nav').hidden = v === 'onb';
+  document.querySelectorAll('#nav button').forEach(b => b.dataset.view===v ? b.setAttribute('aria-current','page') : b.removeAttribute('aria-current'));
+  if (v === 'onb'){ $('v-onb').dataset.step = ob.step; renderOnb(); renderOnbGrid(false); }
+  if (v === 'today') renderToday();
+  if (v === 'grid'){ wi = null; renderGridView(false); }
+  if (v === 'settings') renderSettings();
+  window.scrollTo(0,0);
+}
+document.addEventListener('click', e => { const b = e.target.closest('#nav button,[data-go]'); if (b) show(b.dataset.view || b.dataset.go); });
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+show(S ? 'today' : 'onb');
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
