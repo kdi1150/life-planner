@@ -148,7 +148,14 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .week .c{width:100%}
 .streak{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
 .streak span{padding:6px 12px;border-radius:999px;font-size:13px;background:var(--accent-soft);color:var(--accent-ink)}
-.streak span.q{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.streak .q{padding:6px 12px;border-radius:999px;font-size:13px;background:transparent;border:1px solid var(--line);color:var(--muted);cursor:pointer;font-family:inherit}
+.streak-note{font-size:12.5px;color:var(--muted);max-width:320px;line-height:1.5}
+.countdown .sub{display:block;font-family:var(--font-body);font-size:13px;font-weight:500;color:var(--muted);margin-top:4px}
+.win{margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-size:14.5px;line-height:1.5}
+.win b{display:block;font-family:var(--font-display);font-size:20px;color:var(--accent-ink);margin-bottom:2px}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.07)}100%{transform:scale(1)}}
+.bigc.full{animation:pop .6s ease}
+@media (prefers-reduced-motion: reduce){.bigc.full{animation:none}}
 .streak b{font-weight:700}
 
 /* 그리드 화면 */
@@ -267,6 +274,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
           <p class="muted" id="todaySub"></p>
           <div class="week" id="week"></div>
           <div class="streak" id="streak" aria-live="polite"></div>
+          <p class="streak-note" id="streakNote" hidden>루틴을 하나도 못 한 날이 있어도, 한 달에 2번까지는 연속 기록이 끊기지 않아요. 매달 1일에 다시 2번이 생겨요.</p>
         </div>
         <div class="card">
           <div class="row" style="justify-content:space-between">
@@ -875,21 +883,28 @@ function renderToday(){
     const on = done.includes(r.id);
     return `<li><label class="${on?'done':''}"><input type="checkbox" data-id="${r.id}" ${on?'checked':''}><span>${esc(r.name)}</span><span class="meta">${r.min}분</span></label></li>`;
   }).join('') : `<li class="note">${S.routines.length ? '이날은 정해 둔 루틴이 없어요.' : '아직 루틴이 없어요.'} <button class="btn" data-go="settings" style="margin-top:8px">루틴 추가하기</button></li>`;
-  $('todayHint').textContent = editYesterday
+  const win = !editYesterday && ratio === 1;
+  $('todayHint').className = win ? 'win' : 'note';
+  $('todayHint').style.marginTop = '14px';
+  if (win) $('todayHint').innerHTML = `<b>해냈어요!</b>오늘 루틴 ${rs.length}개를 모두 지켰어요. 오늘의 ${fmtHM(doneMin/60)}은 온전히 나를 위해 쓴 시간이에요.`;
+  else $('todayHint').textContent = editYesterday
     ? '어제 기록은 오늘 낮 12시까지 고칠 수 있어요.'
-    : (ratio === 1 ? '오늘 칸을 다 채웠어요. 이 칸은 월 칸과 년 칸에도 쌓여요.' : '하나씩 체크할 때마다 오늘 칸이 그만큼 차올라요. 일부만 해도 그만큼 남아요.');
+    : '하나씩 체크할 때마다 오늘 칸이 그만큼 차올라요. 일부만 해도 그만큼 남아요.';
+  $('bigC').classList.toggle('full', win);
   // 이번 주 7칸
   const wk = []; const base = new Date(now); base.setDate(now.getDate() - now.getDay());
   for (let i=0;i<7;i++){ const x = new Date(base); x.setDate(base.getDate()+i); const fut = x > now && keyOf(x)!==keyOf(now);
     wk.push(`<div><span class="c ${fut?'free':'past'}${keyOf(x)===keyOf(now)?' now':''}" style="--f:${dayRatio(keyOf(x))};display:block" title="${x.getMonth()+1}월 ${x.getDate()}일 · ${Math.round(dayRatio(keyOf(x))*100)}%"></span>${DAYS[i]}</div>`); }
   $('week').innerHTML = wk.join('');
   const st = streakInfo();
-  $('streak').innerHTML = `<span>연속 <b>${st.streak}</b>일</span><span>누적 <b>${st.total}</b>일</span><span class="q">이번 달 쉬는 날 ${st.left}회 남음</span>`;
-  if (!editYesterday && [3,7,14,30,50,100,200,365].includes(st.streak) && done.length)
+  $('streak').innerHTML = `<span>연속 <b>${st.streak}</b>일</span><span>누적 <b>${st.total}</b>일</span><button type="button" class="q" id="freezeBtn" aria-expanded="${!$('streakNote').hidden}">이번 달 빠져도 괜찮은 날 ${st.left}번 ⓘ</button>`;
+  if (win && st.streak >= 2) $('todayHint').innerHTML += ` 연속 ${st.streak}일째, 멋져요!`;
+  else if (!editYesterday && [3,7,14,30,50,100,200,365].includes(st.streak) && done.length)
     $('todayHint').textContent = `연속 ${st.streak}일째예요. 잘하고 있어요!`;
 }
 $('rList').addEventListener('change', e => { const id = e.target.dataset.id; if (id){ toggle(viewDate(), id); renderToday(); } });
 $('yBtn').onclick = () => { editYesterday = !editYesterday; renderToday(); };
+$('streak').addEventListener('click', e => { if (e.target.closest('#freezeBtn')){ $('streakNote').hidden = !$('streakNote').hidden; e.target.closest('#freezeBtn').setAttribute('aria-expanded', !$('streakNote').hidden); } });
 
 /* ---------- 그리드 ---------- */
 let unit = 'year';
@@ -1011,10 +1026,12 @@ $('clearYes').onclick = () => {
 /* ---------- 화면 전환 ---------- */
 function tick(){
   if (!S || $('v-today').hidden) return;
-  const h = freeHoursLeft();
-  $('cdown').innerHTML = `${Math.floor(h).toLocaleString('ko-KR')}<small>시간 ${String(Math.floor((h % 1) * 60)).padStart(2,'0')}분</small>`;
+  const sec = Math.floor(freeHoursLeft() * 3600);
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), ss = sec % 60;
+  $('cdown').innerHTML = `${d.toLocaleString('ko-KR')}<small>일 ${h}시간</small><span class="sub">${m}분 ${String(ss).padStart(2,'0')}초 · 지금도 줄어들고 있어요</span>`;
 }
-setInterval(tick, 5000);
+setInterval(tick, 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 function show(v){
   ['onb','today','grid','settings'].forEach(x => $('v-'+x).hidden = x!==v);
   $('nav').hidden = v === 'onb';
