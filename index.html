@@ -115,6 +115,18 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .rt-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .rt-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px}
 .gain{color:var(--accent-ink);font-weight:600}
+.lifebar{display:flex;height:30px;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line);margin-top:4px}
+.lifebar span{display:block;height:100%;transition:flex-grow .5s ease}
+.lifebar .s-sleep{background:var(--sleep)} .lifebar .s-work{background:var(--work)} .lifebar .s-sns{background:var(--sns)} .lifebar .s-free{background:var(--accent)}
+.bar-key{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.bar-key i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+.bar-key b{color:var(--ink);font-weight:600}
+.punch{margin:18px 0 6px;padding:16px;border-radius:12px;background:var(--accent-soft)}
+.punch .eyebrow{color:var(--accent-ink)}
+.punch-big{font-family:var(--font-display);font-size:30px;font-weight:700;line-height:1.25;margin-top:4px}
+.punch-sub{font-size:15px;margin-top:6px}
+.countdown{font-family:var(--font-display);font-size:30px;font-weight:700;line-height:1.1}
+.countdown small{font-size:16px}
 .birth{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
 .birth input,.birth select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 .age-out{font-size:13px;color:var(--accent-ink);font-weight:600}
@@ -249,6 +261,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <section class="view" id="v-today" hidden>
       <div class="today">
         <div class="card today-cell">
+          <div><p class="eyebrow">나를 위해 남은 시간</p><p class="countdown num" id="cdown"></p></div>
           <p class="eyebrow" id="todayDate"></p>
           <div class="bigc" id="bigC"><span id="bigPct">0%</span></div>
           <p class="muted" id="todaySub"></p>
@@ -451,6 +464,25 @@ function yearsOf(p){
   const W = clamp(p.retire - p.age, 0, R);
   const sleep = R*p.sleep/24, sns = R*p.sns/24, work = W*p.work/24;
   return {R, sleep, sns, work, free: Math.max(0, R - sleep - sns - work)};
+}
+function fmtHM(h){ const m = Math.round(h*60), hh = Math.floor(m/60), mm = m % 60; return hh && mm ? `${hh}시간 ${mm}분` : hh ? `${hh}시간` : `${mm}분`; }
+/* 나를 위해 쓸 수 있는 하루 시간 (평일/주말 값 o = {sleep,sns,work}) */
+function dayFree(o, age, retire){ return Math.max(0, 24 - o.sleep - o.sns - (age < retire ? o.work : 0)); }
+function weekendsLeft(R){ return Math.max(0, Math.round(R * 52.18 / 10) * 10); }
+function barHTML(y){
+  const seg = (cls, v) => `<span class="${cls}" style="flex-grow:${Math.max(0, v)}"></span>`;
+  return seg('s-sleep', y.sleep) + seg('s-work', y.work) + seg('s-sns', y.sns) + seg('s-free', y.free);
+}
+function keyHTML(y){
+  const k = (v, c, n) => `<span><i style="background:var(${c})"></i>${n} ${v.toFixed(1)}년</span>`;
+  return k(y.sleep,'--sleep','잠') + k(y.work,'--work','일') + k(y.sns,'--sns','미디어') + `<span><i style="background:var(--accent)"></i><b>나를 위한 시간 ${y.free.toFixed(1)}년</b></span>`;
+}
+/* 지금 이 순간 기준, 남은 '나를 위한 시간' (시간 단위, 계속 줄어듦) */
+function freeHoursLeft(){
+  const p = profile(), now = Date.now(), b = p.birth;
+  const at = age => new Date(b.y + age, b.m, b.d).getTime();
+  const Rh = Math.max(0, at(p.life) - now) / 36e5, Wh = Math.max(0, Math.min(at(p.retire), at(p.life)) - now) / 36e5;
+  return Math.max(0, Rh - Rh*p.sleep/24 - Rh*p.sns/24 - Wh*p.work/24);
 }
 function fmtYears(y){
   if (y < 1) return `약 ${Math.round(y*12)}개월`;
@@ -713,29 +745,34 @@ function renderOnb(){
     $('obRetire').oninput = e => { const v = parseInt(e.target.value,10); if (v>=0 && v<=120) ob.retire = v; };
   } else if (ob.step === 4){
     const base = yearsOf({...obProfile(), sns: ob.sns});
-    c.innerHTML = `${dots()}<p class="eyebrow">결과</p>
-      <h1 class="q">당신의 진짜 남은 시간은 <span id="obRes">${fmtYears(yearsOf(obProfile()).free)}</span>이에요</h1>
-      <p class="muted">남은 ${base.R}년 중 수면 ${base.sleep.toFixed(1)}년, 미디어 ${base.sns.toFixed(1)}년, 일·학업 ${base.work.toFixed(1)}년을 뺀 시간이에요.</p>
+    c.innerHTML = `${dots()}<p class="eyebrow">결과 · 남은 생 ${base.R}년</p>
+      <div class="lifebar" id="obBar" role="img" aria-label="남은 생을 잠, 일, 미디어, 나를 위한 시간으로 나눈 막대"></div>
+      <div class="bar-key" id="obKey"></div>
+      <div class="punch"><p class="eyebrow">나를 위해 쓸 수 있는 시간</p>
+        <p class="punch-big">평일 하루 <span id="obDay"></span></p>
+        <p class="punch-sub">남은 주말은 약 <b id="obWk"></b>이에요.</p></div>
       <div class="field"><label for="obCut">미디어 시간을 하루 줄여 보면</label>
         <span class="slider-val num" id="obCutV">${ob.cut ? hrs(ob.cut)+' 줄이기' : '그대로'}</span>
         <input type="range" id="obCut" min="0" max="${ob.sns}" step="0.5" value="${ob.cut}">
         <p class="gain" id="obGain"></p></div>
-      <div class="row actions"><button class="btn primary" id="obNext">다음: 루틴 만들기</button><button class="btn ghost" id="obBack">이전</button></div>`;
+      <div class="row actions"><button class="btn primary" id="obNext">다음: 이 시간을 어디에 쓸까요?</button><button class="btn ghost" id="obBack">이전</button></div>`;
     const upd = () => {
       ob.cut = parseFloat($('obCut').value);
       $('obCutV').textContent = ob.cut ? hrs(ob.cut)+' 줄이기' : '그대로';
-      const gain = yearsOf(obProfile()).free - base.free;
-      $('obGain').textContent = ob.cut ? `${fmtYears(gain)}이 돌아와요. 다음 단계에서 이 시간으로 루틴을 만들 수 있어요.` : '';
-      $('obRes').textContent = fmtYears(yearsOf(obProfile()).free);
+      const y = yearsOf(obProfile()), gain = y.free - base.free, age = ageAt(ob.birth, new Date());
+      $('obBar').innerHTML = barHTML(y); $('obKey').innerHTML = keyHTML(y);
+      $('obDay').textContent = fmtHM(dayFree({...ob.wd, sns: Math.max(0, ob.wd.sns - ob.cut)}, age, ob.retire));
+      $('obWk').textContent = `${weekendsLeft(base.R).toLocaleString('ko-KR')}번`;
+      $('obGain').textContent = ob.cut ? `평일 하루 ${fmtHM(ob.cut)}, 남은 생 동안 ${fmtYears(gain)}이 나에게 돌아와요.` : '';
       renderOnbGrid(true);
     };
     $('obCut').oninput = upd; upd();
     $('obNext').onclick = () => go(5);
     $('obBack').onclick = () => go(3);
   } else {
-    const free = yearsOf(obProfile()).free;
+    const wdFree = dayFree({...ob.wd, sns: Math.max(0, ob.wd.sns - ob.cut)}, ageAt(ob.birth, new Date()), ob.retire);
     const sug = ob.cut ? [{name:'되찾은 시간 루틴', min:Math.round(ob.cut*60)}, ...SUGGEST] : SUGGEST;
-    c.innerHTML = `${dots()}<h1 class="q">이 ${fmtYears(free).replace('약 ','')}을 어떻게 채울까요?</h1>
+    c.innerHTML = `${dots()}<h1 class="q">평일 하루 ${fmtHM(wdFree)}, 어디에 쓸까요?</h1>
       <p class="muted">평일 루틴과 주말 루틴을 각각 3개까지 정해 주세요. 체크할 때마다 오늘 칸이 채워져요.</p>
       <div class="seg when" id="obWhen" role="group" aria-label="루틴 하는 날">${['all','wd','we'].map(k=>`<button type="button" data-w="${k}" aria-pressed="${obWhen===k}">${WHEN_NAME[k]}</button>`).join('')}</div>
       <div class="chips">${sug.map((s,i)=>`<button class="chip" data-s="${i}">+ ${s.name} ${s.min}분</button>`).join('')}</div>
@@ -751,7 +788,7 @@ function renderOnb(){
     const list = () => {
       $('obRList').innerHTML = ob.routines.map((r,i)=>`<li><span>${esc(r.name)} <span class="muted">${r.min}분 · ${dayLabel(r.days)}</span></span><button class="btn ghost" data-del="${i}" aria-label="${esc(r.name)} 빼기">빼기</button></li>`).join('');
       const full = !canAdd();
-      $('obRNote').textContent = full ? `${WHEN_NAME[obWhen]} 루틴은 처음엔 3개까지예요. 더 넣고 싶으면 시작한 뒤 설정에서 얼마든지 더할 수 있어요.` : `평일 ${cnt(1)}/3 · 주말 ${cnt(0)}/3`;
+      $('obRNote').textContent = full ? `${WHEN_NAME[obWhen]} 루틴은 처음엔 3개까지예요. 더 넣고 싶으면 시작한 뒤 설정에서 얼마든지 더할 수 있어요.` : `평일 ${cnt(1)}/3 · 주말 ${cnt(0)}/3 · 평일 ${fmtHM(wdFree)} 중 ${fmtHM(ob.routines.filter(r => r.days.includes(1)).reduce((a,r) => a + r.min, 0)/60)} 계획`;
       $('obRAdd').disabled = full;
       c.querySelectorAll('.chip').forEach(b => b.disabled = full);
       c.querySelectorAll('#obWhen button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === obWhen));
@@ -788,7 +825,11 @@ function go(step, animate){
   if (step < 4) ob.cut = 0;
   $('v-onb').dataset.step = step;
   renderOnb();
-  if (window.matchMedia('(max-width:820px)').matches) window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'});
+  if (window.matchMedia('(max-width:820px)').matches){
+    // 결과 화면은 '나를 위해 쓸 수 있는 시간' 카드가 먼저 보이게
+    if (step === 4) $('onbCard').scrollIntoView({block:'start', behavior: reduceMotion ? 'auto' : 'smooth'});
+    else window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'});
+  }
   renderOnbGrid(!!animate);
   const f = $('onbCard').querySelector('h1'); if (f){ f.setAttribute('tabindex','-1'); }
 }
@@ -823,8 +864,10 @@ function renderToday(){
   $('todayDate').textContent = `${d.getMonth()+1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일${editYesterday?' · 어제':''}`;
   $('bigC').style.setProperty('--f', ratio);
   $('bigPct').textContent = rs.length ? `${done.length}/${rs.length}` : (S.routines.length ? '쉬는 날' : '0/0');
-  const y = yearsOf(profile());
-  $('todaySub').textContent = `진짜 남은 시간 ${fmtYears(y.free)} 중 하루`;
+  const pf = profile(), todayFree = dayFree(isWeekend(d) ? pf.we : pf.wd, pf.age, pf.retire);
+  const doneMin = rs.filter(r => done.includes(r.id)).reduce((a, r) => a + r.min, 0);
+  $('todaySub').textContent = doneMin ? `오늘 나를 위한 ${fmtHM(todayFree)} 중 ${fmtHM(doneMin/60)}을 채웠어요` : `오늘 나를 위해 쓸 수 있는 시간은 ${fmtHM(todayFree)}이에요`;
+  tick();
   $('listTitle').textContent = editYesterday ? '어제 루틴' : '오늘 루틴';
   $('yBtn').hidden = !canY;
   $('yBtn').textContent = editYesterday ? '오늘로 돌아가기' : '어제 기록 고치기';
@@ -966,6 +1009,12 @@ $('clearYes').onclick = () => {
 };
 
 /* ---------- 화면 전환 ---------- */
+function tick(){
+  if (!S || $('v-today').hidden) return;
+  const h = freeHoursLeft();
+  $('cdown').innerHTML = `${Math.floor(h).toLocaleString('ko-KR')}<small>시간 ${String(Math.floor((h % 1) * 60)).padStart(2,'0')}분</small>`;
+}
+setInterval(tick, 5000);
 function show(v){
   ['onb','today','grid','settings'].forEach(x => $('v-'+x).hidden = x!==v);
   $('nav').hidden = v === 'onb';
