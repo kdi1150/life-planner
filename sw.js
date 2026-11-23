@@ -1,5 +1,5 @@
 // 인생 플래너 오프라인 캐시. 파일을 바꾸면 VERSION을 올려 주세요.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = 'life-planner-' + VERSION;
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
