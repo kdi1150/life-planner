@@ -1333,6 +1333,8 @@ function renderAlarm(){ const a = S.alarm || 'both';
   $('alarmSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.a === a));
   $('alarmNote').textContent = canVibe() ? '휴대폰이 무음이면 소리가 안 날 수 있어요.'
     : '이 휴대폰(아이폰 등)은 앱에서 진동을 쓸 수 없어요. 진동만을 골라도 소리로 알려 드려요.'; }
+/* 다시 연 앱에서도 소리가 나도록, 화면을 처음 누를 때 소리 장치를 준비해요 */
+document.addEventListener('pointerdown', () => { try{ const A = window.AudioContext || window.webkitAudioContext; if (A && !audio) audio = new A(); }catch(x){} }, {capture:true});
 $('alarmSeg').onclick = e => { const a = e.target.dataset.a; if (!a) return; S.alarm = a; save(); renderAlarm();
   try{ const A = window.AudioContext || window.webkitAudioContext; if (A && !audio) audio = new A(); }catch(x){}
   alarm(); };
