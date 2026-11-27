@@ -454,6 +454,11 @@ input[type=range]{width:100%;accent-color:var(--accent)}
               <div class="row"><button class="btn primary" type="submit">루틴 추가</button><span class="status" id="aStatus"></span></div>
             </form>
           </div>
+          <div class="card" style="display:grid;gap:12px" id="alarmCard">
+            <h2>타이머가 끝나면</h2>
+            <div class="seg when" id="alarmSeg" role="group" aria-label="타이머 끝 알림"><button type="button" data-a="both">소리+진동</button><button type="button" data-a="sound">소리만</button><button type="button" data-a="vibe">진동만</button></div>
+            <p class="note" id="alarmNote"></p>
+          </div>
           <div class="card" style="display:grid;gap:12px" id="remindCard">
             <h2>체크 알림</h2>
             <p class="note">루틴을 해 놓고 체크를 잊지 않도록, 매일 정한 시각에 구글 캘린더 알림이 오게 해요. 버튼을 누르면 캘린더가 열리고, '저장'만 누르면 돼요.</p>
@@ -1304,7 +1309,7 @@ function finishRun(auto){
   if (isCount(r)) r.last = mins;
   toggle(d, r.id, mins);
   closeRun();
-  if (auto){ beep(); buzz(); }
+  if (auto) alarm();
   editYesterday = false;
   if (!$('v-today').hidden) renderToday();
   toast(isCount(r) ? `<b>${esc(r.name)} ${r.cnt}회</b> 완료! <b>+${fmtHM(mins/60)}</b>을 나에게 썼어요`
@@ -1318,6 +1323,19 @@ $('runPause').onclick = () => { const R = S.run; if (!R) return;
 $('runDone').onclick = () => finishRun(false);
 $('runCancel').onclick = () => { S.run = null; save(); closeRun(); };
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S && S.run && !$('run').hidden){ if (S.run.at) lockScreen(); runTick(); } });
+
+/* 타이머 끝 알림: S.alarm = 'both'(기본) | 'sound' | 'vibe' */
+const canVibe = () => typeof navigator.vibrate === 'function';
+function alarm(){ const a = S.alarm || 'both';
+  if (a !== 'vibe' || !canVibe()) beep();   // 진동이 안 되는 폰(아이폰)에서 '진동만'이면 소리로 대신 알려요
+  if (a !== 'sound') try{ canVibe() && navigator.vibrate([400, 150, 400, 150, 400]); }catch(e){} }
+function renderAlarm(){ const a = S.alarm || 'both';
+  $('alarmSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.a === a));
+  $('alarmNote').textContent = canVibe() ? '휴대폰이 무음이면 소리가 안 날 수 있어요.'
+    : '이 휴대폰(아이폰 등)은 앱에서 진동을 쓸 수 없어요. 진동만을 골라도 소리로 알려 드려요.'; }
+$('alarmSeg').onclick = e => { const a = e.target.dataset.a; if (!a) return; S.alarm = a; save(); renderAlarm();
+  try{ const A = window.AudioContext || window.webkitAudioContext; if (A && !audio) audio = new A(); }catch(x){}
+  alarm(); };
 
 /* ---------- 화면 전환 ---------- */
 function tick(){
@@ -1335,7 +1353,7 @@ function show(v){
   if (v === 'onb'){ $('v-onb').dataset.step = ob.step; renderOnb(); renderOnbGrid(false); }
   if (v === 'today') renderToday();
   if (v === 'grid'){ wi = null; renderGridView(false); }
-  if (v === 'settings') renderSettings();
+  if (v === 'settings'){ renderSettings(); renderAlarm(); }
   window.scrollTo(0,0);
 }
 document.addEventListener('click', e => { const b = e.target.closest('#nav button,[data-go]'); if (b) show(b.dataset.view || b.dataset.go); });
